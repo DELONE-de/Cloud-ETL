@@ -9,7 +9,7 @@ terraform {
 }
 
 resource "aws_dynamodb_table" "tf_lock" {
-  name         = var.tf_lock_table
+  name         = "terraform_table"
   billing_mode = "PAY_PER_REQUEST"
   
   hash_key     = "LockID"
@@ -59,4 +59,11 @@ module "observability" {
 module "orchestration" {
     source = "./orchestration"
   
+}
+
+module "security" {
+    source = "./security"
+    project_prefix = var.project_prefix
+    
+
 }
