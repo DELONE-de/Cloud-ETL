@@ -12,3 +12,4 @@ variable "tf_lock_table" {
   type = string
   description = "terraform_table"
 }
+
