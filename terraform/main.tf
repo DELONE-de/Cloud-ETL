@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket = var.tf_state_bucket
+    bucket = "s3-state-bucket"
     key = "ml-data-platform/terraform.tfstate"
-    region = var.region
-    dynamodb_table = var.tf_lock_table
+    region = "us-east-1"
+    dynamodb_table = "terraform_table"
     encrypt = true
   }
 }
@@ -38,10 +38,6 @@ module "processing" {
 
 module "ci_cd" {
     source = "./ci_cd"
-  
-}
-module "networking" {
-    source = "./networking"
   
 }
 
