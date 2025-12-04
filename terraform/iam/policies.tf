@@ -116,3 +116,52 @@ resource "aws_s3_bucket_policy" "raw_policy" {
   bucket = aws_s3_bucket.raw.id
   policy = data.aws_iam_policy_document.s3_restrict_policy.json
 }
+
+resource "aws_iam_role_policy" "lambda_policy" {
+  name = "${var.project_prefix}-lambda-processing-policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      # Read raw S3 data
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ],
+        Resource = [
+          var.raw_bucket_arn,
+          "${var.raw_bucket_arn}/*"
+        ]
+      },
+      # Write to processed bucket
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:PutObject"
+        ],
+        Resource = "${var.processed_bucket_arn}/*"
+      },
+      # Secrets Manager
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ],
+        Resource = var.secret_arn
+      },
+      # Lambda logging
+      {
+        Effect = "Allow",
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
