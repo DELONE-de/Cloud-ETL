@@ -50,37 +50,116 @@ resource "aws_iam_role" "glue_crawler_role" {
   })
 }
 
-resource "aws_iam_role" "sfn_exec_role" {
-  name = "StepFunctionsExecutionRole-ETL"
+resource "aws_iam_role" "scheduler_exec_role" {
+  name_prefix = "EBScheduler-SFN-Exec-"
 
   assume_role_policy = jsonencode({
-    Version = "2012-10-17",
+    Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow",
-        Principal = {
-          Service = "states.amazonaws.com"
-        },
         Action = "sts:AssumeRole"
-      }
+        Effect = "Allow"
+        Principal = {
+          Service = "scheduler.amazonaws.com"
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_iam_policy" "scheduler_sfn_policy" {
+  name_prefix = "EBScheduler-SFN-Invoke-"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = "states:StartExecution"
+        Resource = [
+          # Allows the scheduler to start the specified Step Function
+          var.step_function_arn,
+        ]
+      },
     ]
   })
 }
 
 
 resource "aws_iam_role" "sfn_exec_role" {
-  name = "StepFunctionsExecutionRole-ETL"
-
+  name_prefix = "SFN-Glue-SageMaker-Exec-"
   assume_role_policy = jsonencode({
-    Version = "2012-10-17",
+    Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow",
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
         Principal = {
           Service = "states.amazonaws.com"
-        },
-        Action = "sts:AssumeRole"
+        }
+      },
+    ]
+  })
+}
+
+
+resource "aws_iam_role_policy" "sfn_pipeline_policy" {
+  name_prefix = "SFN-Pipeline-Permissions-"
+  role       = aws_iam_role.sfn_exec_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      # Permissions for Glue Job Run (.sync pattern)
+      {
+        Effect = "Allow",
+        Action = [
+          "glue:StartJobRun",
+          "glue:GetJobRun", # Required for .sync
+          "glue:GetJobRuns",
+          "glue:GetJob",
+          "glue:GetJobs"
+        ],
+        Resource = [
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:job/etl-pipeline",
+          "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:job/*"
+        ]
+      },
+      # Permissions for SageMaker Training Job
+      {
+        Effect = "Allow",
+        Action = [
+          "sagemaker:CreateTrainingJob",
+          "sagemaker:DescribeTrainingJob", # Required for .sync
+          "sagemaker:StopTrainingJob",
+          "sagemaker:AddTags"
+        ],
+        Resource = "*" # SageMaker resources can be dynamic, using '*' for simplicity but limiting in production is best.
+      },
+      # Permission to Pass the SageMaker Execution Role to SageMaker
+      {
+        Effect = "Allow",
+        Action = "iam:PassRole",
+        Resource = var.sagemaker_exec_role_arn
+      },
+      # Permissions for CloudWatch Logs
+      {
+        Effect = "Allow",
+        Action = [
+          "logs:CreateLogDelivery",
+          "logs:GetLogDelivery",
+          "logs:UpdateLogDelivery",
+          "logs:DeleteLogDelivery",
+          "logs:ListLogDeliveries",
+          "logs:PutResourcePolicy",
+          "logs:DescribeResourcePolicies",
+          "logs:DescribeLogGroups"
+        ],
+        Resource = "*"
       }
     ]
   })
 }
+
+
+
