@@ -1,0 +1,135 @@
+{
+    "Comment": "Complete ETL to ML Training Pipeline",
+    "StartAt": "ValidateInput",
+    "States": {
+        "ValidateInput": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "validate-input-data",
+                "Payload": {
+                    "input_path.$": "$.input_path"
+                }
+            },
+            "Next": "RunETL",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "ValidationError"
+                    ],
+                    "Next": "NotifyFailure",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "RunETL": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+                "JobName": "${glue_job_name}",
+                "Arguments": {
+                    "--INPUT_BUCKET.$": "$.input_bucket",
+                    "--OUTPUT_BUCKET": "s3://${s3_bucket_name}/processed/${$.execution_id}/",
+                    "--execution_id.$": "$$.Execution.Name"
+                }
+            },
+            "Next": "CheckOutputQuality",
+            "ResultPath": "$.etl_result",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "States.TaskFailed",
+                        "Glue.ConcurrentRunsExceededException"
+                    ],
+                    "IntervalSeconds": 30,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ]
+        },
+        "CheckOutputQuality": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.etl_result.OutputArguments.record_count",
+                    "NumericGreaterThan": 1000,
+                    "Next": "TrainModel"
+                }
+            ],
+            "Default": "NotifyInsufficientData"
+        },
+        "TrainModel": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync",
+            "Parameters": {
+                "TrainingJobName.$": "States.Format('{}-{}', $$.Execution.Name, $$.State.EnteredTime)",
+                "RoleArn": "${sagemaker_role_arn}",
+                "AlgorithmSpecification": {
+                    "TrainingImage": "${training_image}",
+                    "TrainingInputMode": "File"
+                },
+                "InputDataConfig": [
+                    {
+                        "ChannelName": "train",
+                        "DataSource": {
+                            "S3DataSource": {
+                                "S3DataType": "S3Prefix",
+                                "S3Uri.$": "$.etl_result.OutputArguments.OUTPUT_BUCKET",
+                                "S3DataDistributionType": "FullyReplicated"
+                            }
+                        }
+                    }
+                ],
+                "OutputDataConfig": {
+                    "S3OutputPath": "s3://${s3_bucket_name}/models/${$$.Execution.Name}/"
+                },
+                "ResourceConfig": {
+                    "InstanceType": "${instance_type}",
+                    "InstanceCount": 1,
+                    "VolumeSizeInGB": 50
+                },
+                "StoppingCondition": {
+                    "MaxRuntimeInSeconds": 7200
+                }
+            },
+            "Next": "NotifySuccess",
+            "ResultPath": "$.training_result",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "SageMaker.ResourceLimitExceeded"
+                    ],
+                    "Next": "ScaleDownAndRetry",
+                    "ResultPath": "$.error"
+                }
+            ]
+        },
+        "NotifySuccess": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::sns:publish",
+            "Parameters": {
+                "TopicArn": "arn:aws:sns:${region}:${aws_account_id}:pipeline-notifications",
+                "Message": {
+                    "execution_id.$": "$$.Execution.Name",
+                    "status": "SUCCESS",
+                    "model_path.$": "$.training_result.ModelArtifacts.S3ModelArtifacts",
+                    "training_time.$": "$.training_result.TrainingTimeInSeconds"
+                }
+            },
+            "End": true
+        },
+        "NotifyFailure": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::sns:publish",
+            "Parameters": {
+                "TopicArn": "arn:aws:sns:${region}:${aws_account_id}:pipeline-notifications",
+                "Message": {
+                    "execution_id.$": "$$.Execution.Name",
+                    "status": "FAILED",
+                    "error.$": "$.error"
+                }
+            },
+            "End": true
+        }
+    }
+}
