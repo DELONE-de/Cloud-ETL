@@ -15,3 +15,12 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 }
 
 
+resource "aws_cloudwatch_log_group" "sfn_logs" {
+  name              = "/aws/states/${var.project_name}-pipeline-${var.environment}"
+  retention_in_days = 30
+  
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}

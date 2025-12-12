@@ -1,0 +1,21 @@
+{
+  "Name": "glue-etl-daily-scheduler",
+  "Description": "Schedule daily Glue ETL job execution",
+  "ScheduleExpression": "cron(0 2 * * ? *)",
+  "ScheduleExpressionTimezone": "UTC",
+  "FlexibleTimeWindow": {
+    "Mode": "OFF"
+  },
+  "Target": {
+    "Arn": "arn:aws:glue:{region}:{account-id}:job/{glue-job-name}",
+    "RoleArn": "arn:aws:iam::{account-id}:role/EventBridgeScheduler-GlueExecutionRole",
+    "Input": "{\"JobName\": \"{glue-job-name}\", \"Arguments\": {\"--job-bookmark-option\": \"job-bookmark-enable\", \"--enable-metrics\": \"true\", \"--additional-python-modules\": \"s3://bucket/path/modules.zip\"}}",
+    "RetryPolicy": {
+      "MaximumEventAgeInSeconds": 86400,
+      "MaximumRetryAttempts": 2
+    }
+  },
+  "State": "ENABLED",
+  "ActionAfterCompletion": "NONE",
+  "KmsKeyArn": "arn:aws:kms:{region}:{account-id}:key/{key-id}"
+}
