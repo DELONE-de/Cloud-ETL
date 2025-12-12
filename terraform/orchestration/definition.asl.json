@@ -130,6 +130,56 @@
                 }
             },
             "End": true
+        },
+        "NotifyInsufficientData": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::sns:publish",
+            "Parameters": {
+                "TopicArn": "arn:aws:sns:${region}:${aws_account_id}:pipeline-notifications",
+                "Message": {
+                    "execution_id.$": "$$.Execution.Name",
+                    "status": "INSUFFICIENT_DATA",
+                    "record_count.$": "$.etl_result.OutputArguments.record_count"
+                }
+            },
+            "End": true
+        },
+        "ScaleDownAndRetry": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync",
+            "Parameters": {
+                "TrainingJobName.$": "States.Format('{}-retry-{}', $$.Execution.Name, $$.State.EnteredTime)",
+                "RoleArn": "${sagemaker_role_arn}",
+                "AlgorithmSpecification": {
+                    "TrainingImage": "${training_image}",
+                    "TrainingInputMode": "File"
+                },
+                "InputDataConfig": [
+                    {
+                        "ChannelName": "train",
+                        "DataSource": {
+                            "S3DataSource": {
+                                "S3DataType": "S3Prefix",
+                                "S3Uri.$": "$.etl_result.OutputArguments.OUTPUT_BUCKET",
+                                "S3DataDistributionType": "FullyReplicated"
+                            }
+                        }
+                    }
+                ],
+                "OutputDataConfig": {
+                    "S3OutputPath": "s3://${s3_bucket_name}/models/${$$.Execution.Name}/"
+                },
+                "ResourceConfig": {
+                    "InstanceType": "ml.m5.large",
+                    "InstanceCount": 1,
+                    "VolumeSizeInGB": 30
+                },
+                "StoppingCondition": {
+                    "MaxRuntimeInSeconds": 7200
+                }
+            },
+            "Next": "NotifySuccess",
+            "ResultPath": "$.training_result"
         }
     }
 }
