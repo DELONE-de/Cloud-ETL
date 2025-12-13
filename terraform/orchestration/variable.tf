@@ -71,3 +71,14 @@ variable "allow_sagemaker_traning_prefix" {
   default     = ["sfn-","etl-","training-","batch-"]
 }
 
+variable "glue_job_names" {
+  
+}
+
+variable "project_name" {
+  
+}
+
+variable "environment" {
+  
+}

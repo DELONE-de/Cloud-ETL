@@ -11,7 +11,6 @@ resource "aws_scheduler_schedule" "weekly_pipeline_schedule" {
   }
 
   target {
-    # The ARN of the Step Function State Machine
     arn      = var.step_function_arn
     
     # The IAM Role the scheduler assumes to call StartExecution
