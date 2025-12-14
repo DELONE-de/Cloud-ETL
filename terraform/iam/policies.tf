@@ -192,7 +192,7 @@ resource "aws_iam_policy" "scheduler_sfn_policy" {
 resource "aws_iam_policy" "sfn_core_pipeline_policy" {
   name        = "${var.project_name}-sfn-core-policy-${var.environment}"
   description = "Core permissions for Step Functions to orchestrate ETL and ML pipeline"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -218,7 +218,7 @@ resource "aws_iam_policy" "sfn_core_pipeline_policy" {
           }
         }
       },
-      
+
       # SageMaker Training Job Permissions
       {
         Sid       = "SageMakerTrainingJobManagement"
@@ -242,7 +242,7 @@ resource "aws_iam_policy" "sfn_core_pipeline_policy" {
           }
         }
       },
-      
+
       # IAM PassRole for SageMaker Execution Role
       {
         Sid       = "PassRoleToSageMaker"
@@ -255,7 +255,7 @@ resource "aws_iam_policy" "sfn_core_pipeline_policy" {
           }
         }
       },
-      
+
       # Step Functions Execution Management
       {
         Sid       = "StepFunctionsSelfManagement"
@@ -270,7 +270,7 @@ resource "aws_iam_policy" "sfn_core_pipeline_policy" {
       }
     ]
       })
-  
+
   tags = {
     Project     = var.project_name
     Environment = var.environment
@@ -283,7 +283,7 @@ resource "aws_iam_policy" "sfn_core_pipeline_policy" {
 resource "aws_iam_policy" "sfn_s3_access_policy" {
   name        = "${var.project_name}-sfn-s3-access-${var.environment}"
   description = "S3 permissions for Step Functions pipeline data access"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -326,7 +326,7 @@ resource "aws_iam_policy" "sfn_s3_access_policy" {
 resource "aws_iam_policy" "sfn_cloudwatch_logs_policy" {
   name        = "${var.project_name}-sfn-logs-policy-${var.environment}"
   description = "CloudWatch Logs permissions for Step Functions execution"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -355,7 +355,7 @@ resource "aws_iam_policy" "sfn_cloudwatch_logs_policy" {
       }
     ]
   })
-  
+
   tags = {
     Project     = var.project_name
     Environment = var.environment
@@ -363,5 +363,26 @@ resource "aws_iam_policy" "sfn_cloudwatch_logs_policy" {
   }
 }
 
+data "aws_iam_policy_document" "s3_access_policy" {
+  statement {
+    effect = "Allow"
+    # Actions needed: get (download), put (upload)
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:ListBucket"
+    ]
+    resources = [
+      "arn:aws:s3:::${var.s3_bucket_name}",
+      "arn:aws:s3:::${var.s3_bucket_name}/*"
+    ]
+  }
+}
+
+
+resource "aws_iam_policy" "s3_access_policy" {
+  name   = "LambdaS3ArtifactAccessPolicy"
+  policy = data.aws_iam_policy_document.s3_access_policy.json
+}
 
 

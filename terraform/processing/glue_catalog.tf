@@ -1,9 +1,9 @@
 resource "aws_glue_catalog_database" "example_database" {
   name = "example_data_lake_db"
-  
+
   # Optional: Description for clarity
   description = "Database for storing metadata about our raw data lake tables."
-  
+
   # Optional: Default location in S3 for tables in this database
   # If tables do not specify a location, they default to this path.
   # !! IMPORTANT: Replace YOUR_S3_BUCKET_NAME with your actual bucket name !!
@@ -20,12 +20,12 @@ resource "aws_glue_catalog_database" "example_database" {
 resource "aws_glue_catalog_table" "example_table" {
   name          = "user_events_raw"
   database_name = aws_glue_catalog_database.example_database.name
-  
+
   # Storage Descriptor defines the data location, format, and schema
   storage_descriptor {
     # !! IMPORTANT: Replace YOUR_S3_BUCKET_NAME with your actual bucket name !!
     location = "s3://YOUR_S3_BUCKET_NAME/data_lake/raw/user_events/"
-    
+
     # Input/Output formats define how the data is read and written (e.g., Parquet, CSV, JSON)
     # Using Parquet is recommended for performance and compression.
     input_format  = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
@@ -40,7 +40,7 @@ resource "aws_glue_catalog_table" "example_table" {
         "serialization.format" = "1"
       }
     }
-    
+
     # Column definitions (the schema of your data)
     columns {
       name = "user_id"
@@ -62,7 +62,7 @@ resource "aws_glue_catalog_table" "example_table" {
       type = "string"
       comment = "Raw JSON data payload for the event."
     }
-    
+
     # Parameters can store additional metadata about the table
     parameters = {
       "has_encrypted_data" = "false"

@@ -33,8 +33,7 @@ variable "instance_type" {
   type        = string
   default     = "ml.t2.medium"
 }
-
-variable "initial_instance_count" { 
+variable "initial_instance_count" {
   description = "Initial number of instances for the endpoint"
   type        = number
   default     = 1
@@ -61,7 +60,7 @@ variable "vpc_config" {
   description = "VPC configuration for SageMaker"
   type = object({
     security_group_ids = list(string)
-    subnet_ids        = list(string)
+    subnet_ids         = list(string)
   })
   default = null
 }
@@ -125,7 +124,7 @@ variable "s3_bucket_name" {
 }
 
 variable "source_prefix" {
-  default = "sagemaker/source_files" 
+  default = "sagemaker/source_files"
 }
 
 variable "destination_prefix" {

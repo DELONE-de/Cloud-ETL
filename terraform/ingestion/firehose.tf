@@ -7,7 +7,7 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_to_s3" {
     role_arn           = aws_iam_role.firehose_role.arn
   }
 
-  s3_configuration {
+  extended_s3_configuration {
     role_arn           = aws_iam_role.firehose_role.arn
     bucket_arn         = aws_s3_bucket.raw.arn
     prefix             = "raw/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
@@ -15,10 +15,7 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_to_s3" {
 
     buffering_size     = var.firehose_buffer_size_mb
     buffering_interval = var.firehose_buffer_interval_seconds
-
-    encryption_configuration {
-      kms_key_arn = aws_kms_key.ingest.arn
-    }
+    kms_key_arn        = aws_kms_key.ingest.arn
 
     cloudwatch_logging_options {
       enabled         = true

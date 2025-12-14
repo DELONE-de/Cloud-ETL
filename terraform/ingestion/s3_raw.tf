@@ -5,30 +5,6 @@ locals {
 
 resource "aws_s3_bucket" "raw" {
   bucket = local.bucket_name
-  acl    = var.s3_bucket_acl
-
-  versioning {
-    enabled = true
-  }
-
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        kms_master_key_id = aws_kms_key.ingest.arn
-        sse_algorithm     = "aws:kms"
-      }
-    }
-  }
-
-  lifecycle_rule {
-    id      = "move-to-ia"
-    enabled = true
-
-    transition {
-      days          = var.s3_lifecycle_transition_days
-      storage_class = "GLACIER"
-    }
-  }
 
   force_destroy = false
 
@@ -37,6 +13,44 @@ resource "aws_s3_bucket" "raw" {
     Environment = var.environment
     ManagedBy   = "terraform"
   }
+}
+
+resource "aws_s3_bucket_versioning" "raw" {
+  bucket = aws_s3_bucket.raw.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "raw" {
+  bucket = aws_s3_bucket.raw.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.ingest.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "raw" {
+  bucket = aws_s3_bucket.raw.id
+
+  rule {
+    id     = "move-to-ia"
+    status = "Enabled"
+
+    transition {
+      days          = var.s3_lifecycle_transition_days
+      storage_class = "GLACIER"
+    }
+  }
+}
+
+resource "aws_s3_bucket_acl" "raw" {
+  bucket = aws_s3_bucket.raw.id
+  acl    = var.s3_bucket_acl
 }
 
 # Block public access

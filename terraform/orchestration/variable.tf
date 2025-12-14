@@ -15,7 +15,7 @@ variable "aws_region" {
   default     = "us-east-1" # <--- UPDATE THIS
 }
 
-variable "s3_bucket_name" {
+variable "s3_bucket_name_output" {
   description = "The S3 bucket for Glue output and SageMaker data."
   type        = string
   default     = "your-etl-data-bucket" # <--- UPDATE THIS
@@ -31,7 +31,7 @@ variable "region" {
   description = "The AWS region for the SageMaker training job."
   type        = string
   default     = "us-east-1" # <--- UPDATE THIS
-  
+
 }
 
 variable "project" {
@@ -46,23 +46,18 @@ variable "enviroment" {
   default = "dev"
 }
 
-variable "s3_bucket_name" {
+variable "s3_bucket_name_glue" {
   description = "The s3 bucket for glue ouput and sagemaker data"
   type = string
   default = "etl_bucket"
 }
 
-variable "sagemaker_exec_role_arn" {
-  description = "the ARN of the IAM role dedicated to sagemaker execution"
-  type = string
-  default = "arn:aws:"
-}
 
 variable "glue_job_name" {
   description = "The name of the AWS Glue ETL job to be triggered."
   type        = list(string)
   default     = ["etl-glue-job","data quality check"] # <--- UPDATE THIS
-  
+
 }
 
 variable "allow_sagemaker_traning_prefix" {
@@ -72,13 +67,20 @@ variable "allow_sagemaker_traning_prefix" {
 }
 
 variable "glue_job_names" {
-  
+
 }
 
 variable "project_name" {
-  
+
 }
 
 variable "environment" {
-  
+  description = "Environment name"
+  type        = string
+}
+
+variable "s3_bucket_name" {
+  description = "The S3 bucket name for scripts and temp files"
+  type        = string
+  default     = "etl-bucket"
 }

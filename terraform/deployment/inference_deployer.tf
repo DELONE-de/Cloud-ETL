@@ -10,13 +10,13 @@ locals {
   files_to_upload = {
     # Key is the unique identifier for the Terraform resource instance
     "inference_script" = {
-      local_path = "../sagemaker/inference_handler.py"
-      key_suffix = "inference.py"
+      local_path   = "../sagemaker/inference_handler.py"
+      key_suffix   = "inference.py"
       content_type = "text/x-python"
     }
     "python_deps" = {
-      local_path = "requirements.txt"
-      key_suffix = "requirements.txt"
+      local_path   = "requirements.txt"
+      key_suffix   = "requirements.txt"
       content_type = "text/plain"
     }
   }
@@ -29,13 +29,13 @@ resource "aws_s3_object" "artifact_files" {
   for_each = local.files_to_upload
 
   bucket = data.aws_s3_bucket.target.id
-  
+
   # The final S3 Key: prefix + filename (e.g., sagemaker/my-app/inference.py)
-  key    = "${var.s3_key_prefix}/${each.value.key_suffix}"
-  
+  key = "${var.s3_key_prefix}/${each.value.key_suffix}"
+
   # The local source file path
   source = each.value.local_path
-  
+
   # Set the content type based on the map definition
   content_type = each.value.content_type
 
@@ -45,10 +45,13 @@ resource "aws_s3_object" "artifact_files" {
 
 
 
+
+
+
 # --- 1. Package Lambda Function Code into a ZIP File ---
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_dir  = "../scripts/inference_deployer.py"
+  source_file = "../scripts/inference_deployer.py"
   output_path = "../scripts/my_archive.zip"
 }
 
@@ -60,19 +63,19 @@ data "archive_file" "lambda_zip" {
 
 resource "aws_lambda_function" "sagemaker_packager" {
   function_name = "SageMakerArtifactPackager"
-  
+
   # References the ZIP file created by the data source
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-  
+
   role    = aws_iam_role.sagemaker_packager_role.arn
-  handler = "lambda_function.handler" # <--- lambda_function.py : handler function
+  handler = "inference_deployer.handler" # entrypoint: inference_deployer.handler
   runtime = "python3.11"
-  
+
   # Critical settings for file processing:
-  timeout     = 60      # Give it plenty of time for S3 transfers (default is 3s)
-  memory_size = 512     # Increase memory for file operations (default is 128MB)
-  
+  timeout     = 60  # Give it plenty of time for S3 transfers (default is 3s)
+  memory_size = 512 # Increase memory for file operations (default is 128MB)
+
   # Pass S3 configuration to the Python script via environment variables
   environment {
     variables = {

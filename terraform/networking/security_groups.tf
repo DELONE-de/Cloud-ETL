@@ -9,5 +9,3 @@ resource "aws_security_group" "endpoint_sg" {
   }
 }
 
-vpc_endpoint_sg_ids = [aws_security_group.endpoint_sg.id]
-

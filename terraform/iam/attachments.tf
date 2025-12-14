@@ -34,3 +34,13 @@ resource "aws_iam_role_policy_attachment" "sfn_cloudwatch_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
 }
 
+# 2c. Attach S3 Policy to Role
+resource "aws_iam_role_policy_attachment" "s3_access_attach" {
+  role       = aws_iam_role.sagemaker_packager_role.name
+  policy_arn = aws_iam_policy.s3_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "api_gateway_cloudwatch" {
+  role       = aws_iam_role.api_gateway_cloudwatch.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}

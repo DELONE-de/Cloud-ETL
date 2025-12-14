@@ -15,7 +15,7 @@ output "s3_bucket_arn" {
 output "glue_job_arns" {
   description = "ARNs of Glue jobs that can be executed"
   value = [
-    for job in var.glue_job_names : 
+    for job in var.glue_job_names :
     "arn:aws:glue:${var.aws_region}:${data.aws_caller_identity.current.account_id}:job/${job}"
   ]
 }

@@ -1,53 +1,65 @@
+variable "model_name" {
+  description = "Name of the SageMaker model"
+  type        = string
+  default     = "ml-model"
+}
+
+variable "endpoint_config_name" {
+  description = "Name of the SageMaker endpoint configuration"
+  type        = string
+  default     = "ml-endpoint-config"
+}
+
+variable "endpoint_name" {
+  description = "Name of the SageMaker endpoint"
+  type        = string
+  default     = "ml-endpoint"
+}
+
+variable "container_image" {
+  description = "Docker image for the model container"
+  type        = string
+  default     = "763104351884.dkr.ecr.us-east-1.amazonaws.com/sklearn-inference:0.23-1-cpu-py3"
+}
+
+variable "model_data_url" {
+  description = "S3 URL for the model artifacts"
+  type        = string
+  default     = "s3://your-bucket/model.tar.gz"
+}
+
+variable "instance_type" {
+  description = "Instance type for the endpoint"
+  type        = string
+  default     = "ml.t2.medium"
+}
+
+variable "initial_instance_count" {
+  description = "Initial number of instances for the endpoint"
+  type        = number
+  default     = 1
+}
+
+variable "project_prefix" {
+  description = "Prefix for project resources"
+  type        = string
+  default     = "cloud-etl"
+}
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  default     = "dev"
+}
+
 variable "aws_region" {
   description = "AWS region"
   type        = string
   default     = "us-east-1"
 }
 
-variable "environment" {
-  description = "Environment name (dev/prod)"
+variable "project_name" {
+  description = "Name of the project"
   type        = string
-  default     = "dev"
-}
-
-variable "project_prefix" {
-  description = "Project prefix for resource names"
-  type        = string
-  default     = "etl"
-}
-
-variable "kinesis_shard_count" {
-  description = "Number of shards for Kinesis data stream"
-  type        = number
-  default     = 1
-}
-
-variable "kinesis_retention_hours" {
-  description = "Kinesis data retention in hours (24..168)"
-  type        = number
-  default     = 24
-}
-
-variable "firehose_buffer_size_mb" {
-  description = "Firehose buffer size (MB)"
-  type        = number
-  default     = 5
-}
-
-variable "firehose_buffer_interval_seconds" {
-  description = "Firehose buffer interval (seconds)"
-  type        = number
-  default     = 60
-}
-
-variable "s3_lifecycle_transition_days" {
-  description = "Days before moving raw objects to Glacier/Deep Archive"
-  type        = number
-  default     = 90
-}
-
-variable "s3_bucket_acl" {
-  description = "S3 bucket ACL"
-  type        = string
-  default     = "private"
+  default     = "cloud-etl"
 }

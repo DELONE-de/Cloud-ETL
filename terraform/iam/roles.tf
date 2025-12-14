@@ -72,7 +72,7 @@ resource "aws_iam_role" "scheduler_exec_role" {
 resource "aws_iam_role" "sfn_exec_role" {
   name        = "${var.project_name}-sfn-exec-${var.environment}"
   description = "IAM role for Step Functions to orchestrate Glue ETL and SageMaker training jobs"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -94,7 +94,7 @@ resource "aws_iam_role" "sfn_exec_role" {
       }
     ]
   })
-  
+
   tags = {
     Name        = "${var.project_name}-sfn-exec-role"
     Project     = var.project_name
@@ -106,3 +106,36 @@ resource "aws_iam_role" "sfn_exec_role" {
 
 
 
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "sagemaker_packager_role" {
+  name               = "sagemaker-artifact-packager-role"
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+
+resource "aws_iam_role" "api_gateway_cloudwatch" {
+  name = "${var.name_prefix}-api-gateway-cloudwatch-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "apigateway.amazonaws.com"
+        }
+      }
+    ]
+  })
+}

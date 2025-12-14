@@ -40,75 +40,75 @@ class SageMakerTrainer:
         self.sagemaker_client = boto3.client('sagemaker', region_name=REGION)
         self.timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.model_package_group_name = "InsuranceModelGroup"
-        
+
     def load_data_from_s3(self, train_path: str, valid_path: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Load train and validation data from S3"""
         logger.info(f"Loading training data from: {train_path}")
         logger.info(f"Loading validation data from: {valid_path}")
-        
+
         try:
             # Load data using pandas
             train_df = pd.read_csv(train_path)
             valid_df = pd.read_csv(valid_path)
-            
+
             logger.info(f"Training data shape: {train_df.shape}")
             logger.info(f"Validation data shape: {valid_df.shape}")
-            
+
             # Convert to numpy arrays
             X_train = train_df.iloc[:, :-1].values
             y_train = train_df.iloc[:, -1].values
             X_valid = valid_df.iloc[:, :-1].values
             y_valid = valid_df.iloc[:, -1].values
-            
+
             logger.info(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
             logger.info(f"X_valid shape: {X_valid.shape}, y_valid shape: {y_valid.shape}")
-            
+
             return X_train, y_train, X_valid, y_valid
-            
+
         except Exception as e:
             logger.error(f"Error loading data from S3: {str(e)}")
             raise
-    
+
     def load_preprocessor(self) -> Any:
         """Load preprocessor from S3"""
         logger.info(f"Loading preprocessor from: {PREPROCESSOR_PATH}")
-        
+
         try:
             # Download preprocessor from S3
             path_parts = PREPROCESSOR_PATH.replace("s3://", "").split("/")
             bucket = path_parts[0]
             key = "/".join(path_parts[1:])
-            
+
             # Download to local
             local_path = "/tmp/preprocessor.pkl"
             self.s3_client.download_file(bucket, key, local_path)
-            
+
             # Load preprocessor
             preprocessor = joblib.load(local_path)
             logger.info("Preprocessor loaded successfully")
-            
+
             return preprocessor
-            
+
         except Exception as e:
             logger.error(f"Error loading preprocessor: {str(e)}")
             raise
-    
-    def evaluate_model(self, X_train: np.ndarray, y_train: np.ndarray, 
-                      X_valid: np.ndarray, y_valid: np.ndarray, 
+
+    def evaluate_model(self, X_train: np.ndarray, y_train: np.ndarray,
+                      X_valid: np.ndarray, y_valid: np.ndarray,
                       models: Dict, params: Dict) -> Dict:
         """Evaluate multiple models using GridSearchCV"""
         logger.info(f"Evaluating {len(models)} models")
-        
+
         report = {}
         best_models = {}
-        
+
         for model_name, model in models.items():
             logger.info(f"Training {model_name}")
-            
+
             try:
                 # Get parameters for current model
                 param_grid = params.get(model_name, {})
-                
+
                 if param_grid:
                     # Perform GridSearchCV
                     logger.info(f"Performing GridSearchCV for {model_name}")
@@ -121,22 +121,22 @@ class SageMakerTrainer:
                         verbose=0
                     )
                     grid_search.fit(X_train, y_train)
-                    
+
                     # Get best estimator
                     best_estimator = grid_search.best_estimator_
                     best_params = grid_search.best_params_
-                    
+
                     logger.info(f"Best parameters for {model_name}: {best_params}")
                 else:
                     # Train without hyperparameter tuning
                     best_estimator = model
                     best_estimator.fit(X_train, y_train)
                     best_params = {}
-                
+
                 # Make predictions
                 y_train_pred = best_estimator.predict(X_train)
                 y_valid_pred = best_estimator.predict(X_valid)
-                
+
                 # Calculate metrics
                 train_r2 = r2_score(y_train, y_train_pred)
                 valid_r2 = r2_score(y_valid, y_valid_pred)
@@ -144,7 +144,7 @@ class SageMakerTrainer:
                 valid_mae = mean_absolute_error(y_valid, y_valid_pred)
                 train_rmse = np.sqrt(mean_squared_error(y_train, y_train_pred))
                 valid_rmse = np.sqrt(mean_squared_error(y_valid, y_valid_pred))
-                
+
                 # Store results
                 report[model_name] = {
                     'validation_r2': float(valid_r2),
@@ -153,12 +153,12 @@ class SageMakerTrainer:
                     'validation_rmse': float(valid_rmse),
                     'best_params': best_params
                 }
-                
+
                 # Store best model
                 best_models[model_name] = best_estimator
-                
+
                 logger.info(f"{model_name} - Validation R2: {valid_r2:.4f}, Training R2: {train_r2:.4f}")
-                
+
             except Exception as e:
                 logger.error(f"Error training {model_name}: {str(e)}")
                 report[model_name] = {
@@ -168,62 +168,62 @@ class SageMakerTrainer:
                     'validation_rmse': float('inf'),
                     'error': str(e)
                 }
-        
+
         return report, best_models
-    
+
     def select_best_model(self, report: Dict, best_models: Dict) -> Tuple[Any, str, float, Dict]:
         """Select the best model based on validation R2 score"""
         logger.info("Selecting best model")
-        
+
         best_model_name = None
         best_score = -float('inf')
         best_model = None
         best_model_metrics = {}
-        
+
         for model_name, metrics in report.items():
             if metrics['validation_r2'] > best_score:
                 best_score = metrics['validation_r2']
                 best_model_name = model_name
                 best_model = best_models[model_name]
                 best_model_metrics = metrics
-        
+
         logger.info(f"Best model: {best_model_name} with R2: {best_score:.4f}")
-        
+
         return best_model, best_model_name, best_score, best_model_metrics
-    
+
     def check_threshold(self, score: float) -> bool:
         """Check if model meets the threshold requirement"""
         meets_threshold = score >= THRESHOLD_R2
         logger.info(f"Model R2 score: {score:.4f}, Threshold: {THRESHOLD_R2}, Meets threshold: {meets_threshold}")
         return meets_threshold
-    
+
     def save_model_to_s3(self, model: Any, model_name: str) -> str:
         """Save model as joblib file to S3"""
         logger.info(f"Saving model {model_name} to S3")
-        
+
         try:
             # Save model locally first
             local_model_path = f"/tmp/{model_name.replace(' ', '_').lower()}_{self.timestamp}.joblib"
             joblib.dump(model, local_model_path)
-            
+
             # Upload to S3
             s3_model_key = f"{S3_PREFIX}/models/{model_name.replace(' ', '_').lower()}_{self.timestamp}.joblib"
             s3_model_path = f"s3://{S3_BUCKET}/{s3_model_key}"
-            
+
             self.s3_client.upload_file(local_model_path, S3_BUCKET, s3_model_key)
-            
+
             logger.info(f"Model saved to S3: {s3_model_path}")
-            
+
             return s3_model_path
-            
+
         except Exception as e:
             logger.error(f"Error saving model to S3: {str(e)}")
             raise
-    
+
     def save_metrics_to_s3(self, metrics: Dict, model_name: str) -> str:
         """Save training metrics to S3 as JSON"""
         logger.info(f"Saving metrics for {model_name}")
-        
+
         try:
             # Add metadata
             metrics_with_metadata = {
@@ -237,30 +237,30 @@ class SageMakerTrainer:
                     's3_prefix': S3_PREFIX
                 }
             }
-            
+
             # Save metrics locally
             local_metrics_path = f"/tmp/metrics_{model_name.replace(' ', '_').lower()}_{self.timestamp}.json"
             with open(local_metrics_path, 'w') as f:
                 json.dump(metrics_with_metadata, f, indent=2)
-            
+
             # Upload to S3
             s3_metrics_key = f"{S3_PREFIX}/metrics/{model_name.replace(' ', '_').lower()}_{self.timestamp}.json"
             s3_metrics_path = f"s3://{S3_BUCKET}/{s3_metrics_key}"
-            
+
             self.s3_client.upload_file(local_metrics_path, S3_BUCKET, s3_metrics_key)
-            
+
             logger.info(f"Metrics saved to S3: {s3_metrics_path}")
-            
+
             return s3_metrics_path
-            
+
         except Exception as e:
             logger.error(f"Error saving metrics to S3: {str(e)}")
             raise
-    
+
     def register_model_in_sagemaker(self, model_path: str, model_name: str, metrics: Dict) -> str:
         """Register model in SageMaker Model Registry"""
         logger.info(f"Registering model {model_name} in SageMaker Model Registry")
-        
+
         try:
             # Check if model package group exists, create if not
             try:
@@ -274,7 +274,7 @@ class SageMakerTrainer:
                     ModelPackageGroupName=self.model_package_group_name,
                     ModelPackageGroupDescription="Insurance prediction model group"
                 )
-            
+
             # Create inference specification
             inference_specification = {
                 'Containers': [
@@ -292,7 +292,7 @@ class SageMakerTrainer:
                 'SupportedContentTypes': ['text/csv'],
                 'SupportedResponseMIMETypes': ['text/csv']
             }
-            
+
             # Create model package
             model_package_response = self.sagemaker_client.create_model_package(
                 ModelPackageName=f"{self.model_package_group_name}-{self.timestamp}",
@@ -309,16 +309,16 @@ class SageMakerTrainer:
                 },
                 ModelApprovalStatus='PendingManualApproval'  # Requires manual approval
             )
-            
+
             model_package_arn = model_package_response['ModelPackageArn']
             logger.info(f"Model registered in SageMaker Model Registry: {model_package_arn}")
-            
+
             return model_package_arn
-            
+
         except Exception as e:
             logger.error(f"Error registering model in SageMaker: {str(e)}")
             raise
-    
+
     def get_models_and_params(self) -> Tuple[Dict, Dict]:
         """Define models and their hyperparameters"""
         models = {
@@ -331,7 +331,7 @@ class SageMakerTrainer:
             "AdaBoost Regressor": AdaBoostRegressor(random_state=42),
             "KNeighbors Regressor": KNeighborsRegressor()
         }
-        
+
         params = {
             "Decision Tree": {
                 'criterion': ['squared_error', 'friedman_mse', 'absolute_error'],
@@ -368,30 +368,30 @@ class SageMakerTrainer:
                 'weights': ['uniform', 'distance']
             }
         }
-        
+
         return models, params
-    
+
     def run_training(self, train_data_path: str, valid_data_path: str) -> Dict:
         """Main training pipeline"""
         logger.info("Starting SageMaker training pipeline")
-        
+
         try:
             # Step 1: Load data
             logger.info("=== Step 1: Loading Data ===")
             X_train, y_train, X_valid, y_valid = self.load_data_from_s3(train_data_path, valid_data_path)
-            
+
             # Step 2: Define models
             logger.info("=== Step 2: Defining Models ===")
             models, params = self.get_models_and_params()
-            
+
             # Step 3: Train and evaluate models
             logger.info("=== Step 3: Training and Evaluating Models ===")
             report, best_models = self.evaluate_model(X_train, y_train, X_valid, y_valid, models, params)
-            
+
             # Step 4: Select best model
             logger.info("=== Step 4: Selecting Best Model ===")
             best_model, best_model_name, best_score, best_metrics = self.select_best_model(report, best_models)
-            
+
             # Step 5: Check threshold
             logger.info("=== Step 5: Checking Threshold ===")
             if not self.check_threshold(best_score):
@@ -403,11 +403,11 @@ class SageMakerTrainer:
                     'best_score': best_score,
                     'threshold': THRESHOLD_R2
                 }
-            
+
             # Step 6: Save model to S3
             logger.info("=== Step 6: Saving Model to S3 ===")
             s3_model_path = self.save_model_to_s3(best_model, best_model_name)
-            
+
             # Step 7: Save metrics to S3
             logger.info("=== Step 7: Saving Metrics to S3 ===")
             metrics_data = {
@@ -416,7 +416,7 @@ class SageMakerTrainer:
                 'model_s3_path': s3_model_path
             }
             s3_metrics_path = self.save_metrics_to_s3(metrics_data, best_model_name)
-            
+
             # Step 8: Register model in SageMaker
             logger.info("=== Step 8: Registering Model in SageMaker ===")
             try:
@@ -430,7 +430,7 @@ class SageMakerTrainer:
                 logger.error(f"Failed to register model in SageMaker: {str(e)}")
                 model_package_arn = None
                 registration_success = False
-            
+
             # Prepare final results
             results = {
                 'status': 'success',
@@ -444,23 +444,23 @@ class SageMakerTrainer:
                 'training_timestamp': self.timestamp,
                 'all_model_scores': report
             }
-            
+
             logger.info("=== Training Pipeline Completed Successfully ===")
             logger.info(f"Results: {json.dumps(results, indent=2)}")
-            
+
             return results
-            
+
         except Exception as e:
             logger.error(f"Training pipeline failed: {str(e)}")
             raise
 
 def main():
     """Main entry point for SageMaker training job"""
-    
+
     # Get data paths from environment variables
     train_data_path = os.getenv('TRAIN_DATA_PATH', f"s3://{S3_BUCKET}/{S3_PREFIX}/processed/train_processed.csv")
     valid_data_path = os.getenv('VALID_DATA_PATH', f"s3://{S3_BUCKET}/{S3_PREFIX}/processed/validation_processed.csv")
-    
+
     logger.info("=" * 60)
     logger.info("SageMaker Model Training Pipeline")
     logger.info("=" * 60)
@@ -470,13 +470,13 @@ def main():
     logger.info(f"S3 Bucket: {S3_BUCKET}")
     logger.info(f"S3 Prefix: {S3_PREFIX}")
     logger.info("=" * 60)
-    
+
     # Initialize trainer
     trainer = SageMakerTrainer()
-    
+
     # Run training
     results = trainer.run_training(train_data_path, valid_data_path)
-    
+
     # Print summary
     print("\n" + "=" * 60)
     print("TRAINING JOB SUMMARY")
@@ -489,11 +489,11 @@ def main():
     print(f"Metrics S3 Path: {results.get('metrics_s3_path', 'N/A')}")
     print(f"SageMaker Registration: {results.get('model_registered_in_sagemaker', False)}")
     print("=" * 60)
-    
+
     # Save results to local file for SageMaker
     with open('/opt/ml/output/data/results.json', 'w') as f:
         json.dump(results, f, indent=2)
-    
+
     return results
 
 if __name__ == "__main__":
