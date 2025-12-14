@@ -43,10 +43,7 @@ module "processing" {
     source = "./processing"
 }
 
-module "ci_cd" {
-    source = "./ci_cd"
 
-}
 
 module "deployment" {
     source = "./deployment"
