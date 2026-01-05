@@ -1,46 +1,61 @@
 variable "project_prefix" {
-  description = "Prefix for project resources"
-  type        = string
+  type = string
 }
 
+variable "account_id" {
+  type = string
+}
+variable "project_name" {
+  type = string
+
+}
 variable "environment" {
-  description = "Environment name"
-  type        = string
-}
-
-variable "firehose_buffer_size_mb" {
-  description = "Firehose buffer size in MB"
-  type        = number
-  default     = 5
-}
-
-variable "firehose_buffer_interval_seconds" {
-  description = "Firehose buffer interval in seconds"
-  type        = number
-  default     = 300
+  type = string
 }
 
 variable "kinesis_shard_count" {
-  description = "Number of shards for Kinesis stream"
-  type        = number
-  default     = 1
+  type = number
 }
-
 variable "kinesis_retention_hours" {
-  description = "Kinesis stream retention period in hours"
-  type        = number
-  default     = 24
+  type = number
 }
-
+variable "firehose_buffer_interval_seconds" {
+  type = number
+}
+variable "firehose_buffer_size_mb" {
+  type = number
+}
 variable "s3_bucket_acl" {
-  description = "S3 bucket ACL"
-  type        = string
-  default     = "private"
+  type = string
 }
-
 variable "s3_lifecycle_transition_days" {
-  description = "Days after which objects transition to IA storage"
-  type        = number
-  default     = 30
+  type = number
 }
 
+variable "log_group_name" {
+  type = string
+}
+
+variable "log_stream_name" {
+  type = string
+}
+
+variable "firehose_role_arn" {
+  type = string
+}
+
+variable "firehose_attach" {
+
+}
+
+variable "firehose_s3_attach" {
+
+}
+
+variable "firehose_kinesis_attach" {
+
+}
+
+variable "firehose_logs_attach" {
+
+}

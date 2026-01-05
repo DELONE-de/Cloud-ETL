@@ -1,0 +1,21 @@
+resource "aws_iam_policy" "s3_access_policy" {
+  name = "${var.project_prefix}-${var.environment}-s3-access"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ]
+      Resource = [
+        "arn:aws:s3:::${var.project_prefix}-*",
+        "arn:aws:s3:::${var.project_prefix}-*/*"
+      ]
+    }]
+  })
+}
+

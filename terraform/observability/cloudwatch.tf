@@ -26,6 +26,11 @@ resource "aws_cloudwatch_log_group" "sfn_logs" {
 }
 
 
+resource "aws_cloudwatch_log_stream" "etl_log_stream" {
+  name           = "etl_log_stream"
+  log_group_name = aws_cloudwatch_log_group.sfn_logs.name
+}
+
 resource "aws_cloudwatch_metric_alarm" "endpoint_errors" {
   count = var.enable_monitoring ? 1 : 0
 
@@ -47,9 +52,3 @@ resource "aws_cloudwatch_metric_alarm" "endpoint_errors" {
   tags = var.tags
 }
 
-resource "aws_cloudwatch_log_group" "api_gateway" {
-  name              = "/aws/apigateway/${aws_api_gateway_rest_api.insurance_api.name}"
-  retention_in_days = 30
-
-  tags = var.tags
-}

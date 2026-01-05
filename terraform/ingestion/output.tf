@@ -18,7 +18,7 @@ output "s3_raw_bucket" {
   value       = aws_s3_bucket.raw.bucket
 }
 
-output "kms_key_arn" {
-  description = "KMS key used for encryption"
-  value       = aws_kms_key.ingest.arn
+output "s3_bucket_arn" {
+  description = "S3 bucket ARN"
+  value       = aws_s3_bucket.raw.arn
 }

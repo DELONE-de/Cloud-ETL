@@ -5,16 +5,15 @@ resource "aws_scheduler_schedule" "weekly_pipeline_schedule" {
   # Runs weekly on Sunday (SUN) at 02:00 AM UTC
   schedule_expression = "cron(0 2 ? * SUN *)"
 
-  # Note: flexible_time_window is required, setting to OFF for exact timing.
   flexible_time_window {
     mode = "OFF"
   }
 
   target {
-    arn      = var.step_function_arn
+    arn      = aws_sfn_state_machine.ml_pipeline.arn
 
     # The IAM Role the scheduler assumes to call StartExecution
-    role_arn = aws_iam_role.scheduler_exec_role.arn
+    role_arn = var.scheduler_role
 
     # The input JSON for the Step Function execution.
     # We pass an empty object here as the Step Function uses its own logic for Glue/SageMaker.
@@ -26,7 +25,7 @@ resource "aws_scheduler_schedule" "weekly_pipeline_schedule" {
     # Configure retry behavior (optional, but highly recommended)
     retry_policy {
       maximum_retry_attempts     = 3
-      maximum_event_age_in_seconds = 3600 # 1 hour
+      maximum_event_age_in_seconds = var.maximum_event_age_in_seconds #3600
     }
   }
 }

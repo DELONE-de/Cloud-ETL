@@ -84,3 +84,35 @@ variable "s3_bucket_name" {
   type        = string
   default     = "etl-bucket"
 }
+
+variable "scheduler_role" {
+  type = string
+}
+
+variable "maximum_event_age_in_seconds" {
+  type = number
+}
+
+variable "glue_execution_role_arn" {
+  type = string
+}
+
+variable "sfn_exec_role_arn" {
+  type = string
+}
+
+variable "sfn_logs_arn" {
+  type = string
+}
+
+variable "model_artifacts_bucket" {
+  type = string
+}
+
+variable "project_prefix" {
+  type = string
+}
+
+variable "training_image" {
+  type = string
+}

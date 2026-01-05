@@ -1,161 +1,249 @@
 import os
-import json
+import logging
+import boto3
 import joblib
 import numpy as np
 import pandas as pd
-import sys
-from io import StringIO
-import logging
-from typing import Dict, Any, Union, List
 
-# Setup logging for SageMaker
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+from typing import Dict, Any
+from io import BytesIO
+from botocore.exceptions import ClientError
 
-# Define constants for model files
-MODEL_FILENAME = "model.joblib"
-PREPROCESSOR_FILENAME = "preprocessor.joblib"
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
 
-class CustomException(Exception):
-    """Custom exception class for better error handling"""
-    def __init__(self, message: str, error_details: sys = None):
-        # FIX: Changed _init_ to __init__
-        super().__init__(message)
-        self.message = message
-        self.error_details = error_details
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
+from sklearn.ensemble import (
+    RandomForestClassifier,
+    BaggingClassifier,
+    AdaBoostClassifier,
+    GradientBoostingClassifier,
+)
 
-    def __str__(self) -> str:
-        # FIX: Changed _str_ to __str__
-        return self.message
+# --------------------------------------------------
+# Logging
+# --------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-class InputData:
-    """Class to validate and prepare input data for prediction"""
+# --------------------------------------------------
+# Configuration
+# --------------------------------------------------
+RANDOM_STATE = 42
+TEST_SIZE = 0.3
 
-    def __init__(self,
-                 age: Union[int, str],
-                 children: Union[int, str],
-                 bmi: Union[float, str],
-                 sex: str,
-                 smoker: str,
-                 region: str):
-        # FIX: Changed _init_ to __init__
-        
-        # Validate and convert inputs
-        self.age = self._validate_age(age)
-        self.children = self._validate_children(children)
-        self.bmi = self._validate_bmi(bmi)
-        self.sex = self._validate_sex(sex)
-        self.smoker = self._validate_smoker(smoker)
-        self.region = self._validate_region(region)
+# S3 locations
+DATA_S3_BUCKET = os.getenv("DATA_S3_BUCKET", "your-data-bucket-name")
+DATA_S3_KEY = os.getenv("DATA_S3_KEY", "datasets/Crop_recommendation.csv")
 
-        logger.info(f"Input data validated")
+MODEL_ARTIFACT = "crop_recommendation_model.joblib"
+MODEL_S3_BUCKET = os.getenv("MODEL_S3_BUCKET", "your-model-bucket-name")
+MODEL_S3_KEY = f"models/{MODEL_ARTIFACT}"
 
-    # ... (Validation methods remain same as they were logically sound)
-    def _validate_age(self, age: Union[int, str]) -> int:
-        try:
-            age_int = int(float(age))
-            if age_int < 0: raise ValueError("Age cannot be negative")
-            return age_int
-        except (ValueError, TypeError) as e:
-            raise CustomException(f"Invalid age: {age}")
+# --------------------------------------------------
+# Crop label mapping
+# --------------------------------------------------
+CROP_MAPPING: Dict[int, str] = {
+    1: "Rice",
+    2: "Maize",
+    3: "Jute",
+    4: "Cotton",
+    5: "Coconut",
+    6: "Papaya",
+    7: "Orange",
+    8: "Apple",
+    9: "Muskmelon",
+    10: "Watermelon",
+    11: "Grapes",
+    12: "Mango",
+    13: "Banana",
+    14: "Pomegranate",
+    15: "Lentil",
+    16: "Blackgram",
+    17: "Mungbean",
+    18: "Mothbeans",
+    19: "Pigeonpeas",
+    20: "Kidneybeans",
+    21: "Chickpea",
+    22: "Coffee",
+}
 
-    def _validate_children(self, children: Union[int, str]) -> int:
-        try:
-            return int(float(children))
-        except: return 0
 
-    def _validate_bmi(self, bmi: Union[float, str]) -> float:
-        try:
-            return round(float(bmi), 2)
-        except: return 25.0
 
-    def _validate_sex(self, sex: str) -> str:
-        return str(sex).lower().strip()
+# --------------------------------------------------
+# Load dataset from SageMaker input path
+# --------------------------------------------------
+def load_dataset_from_sagemaker() -> pd.DataFrame:
+    """
+    Loads dataset from SageMaker input data path.
+    Falls back to S3 if running outside SageMaker environment.
+    """
+    # SageMaker mounts input data here
+    sagemaker_data_path = "/opt/ml/input/data/train/"
 
-    def _validate_smoker(self, smoker: str) -> str:
-        return str(smoker).lower().strip()
+    if os.path.exists(sagemaker_data_path):
+        logger.info(f"Loading dataset from SageMaker input path: {sagemaker_data_path}")
+        for file in os.listdir(sagemaker_data_path):
+            if file.endswith('.csv'):
+                df = pd.read_csv(os.path.join(sagemaker_data_path, file))
+                logger.info(f"Dataset loaded from {file}")
+                return df
+        raise RuntimeError("No CSV files found in SageMaker input data")
+    else:
+        # Fallback to S3 for local development
+        logger.info("SageMaker path not found, falling back to S3")
 
-    def _validate_region(self, region: str) -> str:
-        return str(region).lower().strip()
 
-    def get_data_as_dataframe(self) -> pd.DataFrame:
-        input_dict = {
-            "age": [self.age], "children": [self.children], "bmi": [self.bmi],
-            "sex": [self.sex], "smoker": [self.smoker], "region": [self.region]
-        }
-        return pd.DataFrame(input_dict)
+# --------------------------------------------------
+# Feature / label split
+# --------------------------------------------------
+def load_data(df: pd.DataFrame):
+    X = df.iloc[:, :-1]
+    y = df.iloc[:, -1]
+    return X, y
 
-class PredictPipeline:
-    """Main prediction pipeline that loads model and makes predictions"""
 
-    def __init__(self, model_dir: str = "/opt/ml/model"):
-        # FIX: Changed _init_ to __init__
-        self.model_dir = model_dir
-        self.model = None
-        self.preprocessor = None
-        self.loaded = False
+# --------------------------------------------------
+# Model zoo
+# --------------------------------------------------
+def get_models() -> Dict[str, Any]:
+    return {
+        "Linear Discriminant Analysis": LinearDiscriminantAnalysis(),
+        "Logistic Regression": LogisticRegression(max_iter=1000),
+        "Naive Bayes": GaussianNB(),
+        "Support Vector Machine": SVC(),
+        "K-Nearest Neighbors": KNeighborsClassifier(),
+        "Decision Tree": DecisionTreeClassifier(random_state=RANDOM_STATE),
+        "Random Forest": RandomForestClassifier(random_state=RANDOM_STATE),
+        "Bagging": BaggingClassifier(random_state=RANDOM_STATE),
+        "AdaBoost": AdaBoostClassifier(random_state=RANDOM_STATE),
+        "Gradient Boosting": GradientBoostingClassifier(random_state=RANDOM_STATE),
+        "Extra Trees": ExtraTreeClassifier(random_state=RANDOM_STATE),
+    }
 
-    def load_artifacts(self) -> None:
-        try:
-            if self.loaded: return
 
-            # Look for model
-            model_path = os.path.join(self.model_dir, MODEL_FILENAME)
-            if not os.path.exists(model_path):
-                # Fallback check
-                model_path = os.path.join(self.model_dir, "model.joblib")
-            
-            self.model = joblib.load(model_path)
-            
-            # Look for preprocessor
-            pre_path = os.path.join(self.model_dir, PREPROCESSOR_FILENAME)
-            if os.path.exists(pre_path):
-                self.preprocessor = joblib.load(pre_path)
-            
-            self.loaded = True
-            logger.info("Artifacts loaded successfully")
-        except Exception as e:
-            raise CustomException(f"Load failed: {str(e)}")
+# --------------------------------------------------
+# Train & evaluate
+# --------------------------------------------------
+def train_and_evaluate(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE
+    )
 
-    def predict(self, features: pd.DataFrame) -> np.ndarray:
-        if not self.loaded:
-            self.load_artifacts()
+    results = {}
+    trained_models = {}
 
-        if self.preprocessor is not None:
-            data_transformed = self.preprocessor.transform(features)
-        else:
-            data_transformed = features
-            
-        return self.model.predict(data_transformed)
+    for name, model in get_models().items():
+        pipeline = Pipeline(
+            steps=[
+                ("scaler", StandardScaler()),
+                ("model", model),
+            ]
+        )
 
-# ============================================================================
-# SageMaker Required Functions
-# ============================================================================
+        pipeline.fit(X_train, y_train)
+        preds = pipeline.predict(X_test)
+        acc = accuracy_score(y_test, preds)
 
-def model_fn(model_dir):
-    pipeline = PredictPipeline(model_dir)
-    pipeline.load_artifacts()
-    return pipeline
+        results[name] = acc
+        trained_models[name] = pipeline
 
-def input_fn(request_body, request_content_type):
-    if request_content_type == 'application/json':
-        data = json.loads(request_body)
-        # Handle SageMaker's standard 'instances' format or direct dict
-        if isinstance(data, dict) and 'instances' in data:
-            return pd.DataFrame(data['instances'])
-        return pd.DataFrame([data] if isinstance(data, dict) else data)
-    
-    elif request_content_type == 'text/csv':
-        return pd.read_csv(StringIO(request_body.decode('utf-8')))
-    
-    raise ValueError(f"Unsupported content type: {request_content_type}")
+        logger.info(f"{name} Accuracy: {acc:.4f}")
 
-def predict_fn(input_data, model):
-    return model.predict(input_data)
+    best_model_name = max(results, key=results.get)
+    logger.info(f"Best model selected: {best_model_name}")
 
-def output_fn(prediction, accept):
-    if accept == 'application/json':
-        return json.dumps({"predictions": prediction.tolist()}), accept
-    elif accept == 'text/csv':
-        return ",".join([str(x) for x in prediction]), accept
-    return json.dumps(prediction.tolist()), 'application/json'
+    return trained_models[best_model_name], results
+
+
+# --------------------------------------------------
+# Prediction function
+# --------------------------------------------------
+def predict_crop(
+    model,
+    N: float,
+    P: float,
+    K: float,
+    temperature: float,
+    humidity: float,
+    ph: float,
+    rainfall: float,
+) -> str:
+    try:
+        features = np.array(
+            [[N, P, K, temperature, humidity, ph, rainfall]]
+        )
+        prediction = model.predict(features)[0]
+        return CROP_MAPPING.get(int(prediction), "Unknown Crop")
+    except Exception as e:
+        logger.exception("Prediction failed")
+        raise RuntimeError("Prediction error") from e
+
+
+def save_model_to_s3(model):
+    try:
+        joblib.dump(model, MODEL_ARTIFACT)
+        s3 = boto3.client("s3")
+        s3.upload_file(MODEL_ARTIFACT, MODEL_S3_BUCKET, MODEL_S3_KEY)
+        logger.info(f"Model uploaded to s3://{MODEL_S3_BUCKET}/{MODEL_S3_KEY}")
+    except Exception as e:
+        logger.exception("Failed to save or upload model to S3")
+        raise RuntimeError("S3 upload failed") from e
+
+
+# --------------------------------------------------
+# Save model to SageMaker output path
+# --------------------------------------------------
+def save_model_to_sagemaker(model):
+    """
+    Save model to SageMaker output path.
+    SageMaker automatically uploads from /opt/ml/model/ to S3.
+    """
+    sagemaker_model_path = "/opt/ml/model/"
+
+    if os.path.exists(sagemaker_model_path):
+        # Running in SageMaker - save to model output path
+        model_file = os.path.join(sagemaker_model_path, MODEL_ARTIFACT)
+        joblib.dump(model, model_file)
+        logger.info(f"Model saved to SageMaker output path: {model_file}")
+    else:
+        # Fallback to S3 for local development
+        logger.info("SageMaker path not found, falling back to S3 upload")
+        save_model_to_s3(model)
+
+
+# --------------------------------------------------
+# Main execution
+# --------------------------------------------------
+if __name__ == "__main__":
+    # Load dataset from SageMaker input path
+    crop_df = load_dataset_from_sagemaker()
+
+    X, y = load_data(crop_df)
+
+    best_model, scores = train_and_evaluate(X, y)
+
+    crop_name = predict_crop(
+        best_model,
+        N=21,
+        P=26,
+        K=27,
+        temperature=27.003155,
+        humidity=47.675254,
+        ph=5.699587,
+        rainfall=95.851183,
+    )
+
+    logger.info(f"Recommended crop: {crop_name}")
+
+    save_model_to_sagemaker(best_model)

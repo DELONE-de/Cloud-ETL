@@ -2,10 +2,10 @@
 # 1. Glue Job Resources
 resource "aws_glue_job" "etl_pipeline" {
   name     = var.glue_job_names[0]
-  role_arn = aws_iam_role.glue_execution_role.arn
+  role_arn = var.glue_execution_role_arn
 
   command {
-    script_location = "s3://${var.s3_bucket_name}/scripts/etl_script.py"
+    script_location = "s3://${var.s3_bucket_name}scripts/etl_feature_engineering.py"
     python_version  = "3"
   }
 
