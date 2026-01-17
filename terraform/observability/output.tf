@@ -1,3 +1,7 @@
+output "sns_topic_arn" {
+  value = aws_sns_topic.alerts.arn
+}
+
 output "aws_cloudwatch_metric_alarm_id" {
   value = aws_cloudwatch_metric_alarm.lambda_errors.id
 }
@@ -11,6 +15,6 @@ output "log_stream_name" {
 }
 
 output "aws_cloudwatch_metric_alarm_endpoint_errors_id" {
-  value = aws_cloudwatch_metric_alarm.endpoint_errors.*.id
+  value = aws_cloudwatch_metric_alarm.endpoint_errors[*].id
 }
 

@@ -5,7 +5,7 @@ resource "aws_glue_catalog_database" "cloud_etl_db" {
   description = var.aws_catalog_description   #"Database for storing metadata about our raw data lake tables."
 
   tags = {
-    Environment = var.Environment
+    Environment = var.environment
     Project     = var.project
   }
 }

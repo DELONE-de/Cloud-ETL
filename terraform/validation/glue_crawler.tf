@@ -8,7 +8,7 @@ resource "aws_glue_crawler" "data_lake_raw_crawler" {
 
   s3_target {
 
-    path = "s3://${var.project_prefix}-processed-zone/Crop_recommedation.csv"
+    path = "s3://${var.raw_bucket}/"
 
   }
 
@@ -19,6 +19,7 @@ resource "aws_glue_crawler" "data_lake_raw_crawler" {
   }
 
   configuration = jsonencode({
+    "Version" = 1.0
     "Grouping" = {
       "TableGroupingPolicy" = "CombineCompatibleSchemas"
       "TableLevelConfiguration" = 3

@@ -9,11 +9,6 @@ variable "lambda_error_threshold" {
   default     = 5
 }
 
-variable "alarm_sns_topic_arn" {
-  description = "SNS topic ARN for alarm notifications"
-  type        = string
-}
-
 variable "validation_lambda_name" {
   description = "Name of the validation Lambda function"
   type        = string
@@ -44,4 +39,10 @@ variable "tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "sagemaker_endpoint_name" {
+  description = "Name of the SageMaker endpoint"
+  type        = string
+  default     = "default-endpoint"
 }

@@ -1,6 +1,6 @@
 data "archive_file" "validation_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../../scripts/data_validator.py"
+  source_file = "${path.module}/../../scripts/data_validator.py"
   output_path = "${path.module}/../../scripts/data_validator.py.zip"
 }
 

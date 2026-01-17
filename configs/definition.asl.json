@@ -9,55 +9,20 @@
                 "JobName": "${glue_job_name}",
                 "Arguments": {
                     "--INPUT_BUCKET": "s3://${project_prefix}-processed-zone",
-                    "--OUTPUT_BUCKET": "s3://${s3_bucket_name}/processed/",
-                    "--execution_id.$": "$$.Execution.Name"
+                    "--OUTPUT_BUCKET": "s3://${s3_bucket_name}/processed/"
                 }
             },
-            "Next": "CheckOutputQuality",
-            "ResultPath": "$.etl_result",
-            "Retry": [
-                {
-                    "ErrorEquals": [
-                        "States.TaskFailed",
-                        "Glue.ConcurrentRunsExceededException"
-                    ],
-                    "IntervalSeconds": 30,
-                    "MaxAttempts": 3,
-                    "BackoffRate": 2
-                }
-            ],
-            "Catch": [
-                {
-                    "ErrorEquals": ["States.ALL"],
-                    "Next": "NotifyFailure",
-                    "ResultPath": "$.error"
-                }
-            ]
-        },
-        "CheckOutputQuality": {
-            "Type": "Choice",
-            "Choices": [
-                {
-                    "Variable": "$.etl_result.OutputArguments.record_count",
-                    "NumericGreaterThan": 1000,
-                    "Next": "TrainModel"
-                }
-            ],
-            "Default": "NotifyInsufficientData"
+            "Next": "TrainModel"
         },
         "TrainModel": {
             "Type": "Task",
             "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync",
             "Parameters": {
-                "TrainingJobName.$": "States.Format('{}-{}', $$.Execution.Name, $$.State.EnteredTime)",
+                "TrainingJobName": "crop-model-training",
                 "RoleArn": "${sagemaker_role_arn}",
                 "AlgorithmSpecification": {
                     "TrainingImage": "${training_image}",
                     "TrainingInputMode": "File"
-                },
-                "HyperParameters": {
-                    "sagemaker_program": "train.py",
-                    "sagemaker_submit_directory": "s3://${s3_code_bucket_name}/code/code.tar.gz"
                 },
                 "InputDataConfig": [
                     {
@@ -65,14 +30,14 @@
                         "DataSource": {
                             "S3DataSource": {
                                 "S3DataType": "S3Prefix",
-                                "S3Uri.$": "$.etl_result.OutputArguments.OUTPUT_BUCKET",
+                                "S3Uri": "s3://${s3_bucket_name}/processed/",
                                 "S3DataDistributionType": "FullyReplicated"
                             }
                         }
                     }
                 ],
                 "OutputDataConfig": {
-                    "S3OutputPath": "s3://${s3_bucket_name}/models/${$$.Execution.Name}/"
+                    "S3OutputPath": "s3://${s3_bucket_name}/models/"
                 },
                 "ResourceConfig": {
                     "InstanceType": "${instance_type}",
@@ -83,94 +48,7 @@
                     "MaxRuntimeInSeconds": 7200
                 }
             },
-            "Next": "NotifySuccess",
-            "ResultPath": "$.training_result",
-            "Catch": [
-                {
-                    "ErrorEquals": [
-                        "SageMaker.ResourceLimitExceeded"
-                    ],
-                    "Next": "ScaleDownAndRetry",
-                    "ResultPath": "$.error"
-                }
-            ]
-        },
-        "NotifySuccess": {
-            "Type": "Task",
-            "Resource": "arn:aws:states:::sns:publish",
-            "Parameters": {
-                "TopicArn": "arn:aws:sns:${region}:${aws_account_id}:pipeline-notifications",
-                "Message": {
-                    "execution_id.$": "$$.Execution.Name",
-                    "status": "SUCCESS",
-                    "model_path.$": "$.training_result.ModelArtifacts.S3ModelArtifacts",
-                    "training_time.$": "$.training_result.TrainingTimeInSeconds"
-                }
-            },
             "End": true
-        },
-        "NotifyFailure": {
-            "Type": "Task",
-            "Resource": "arn:aws:states:::sns:publish",
-            "Parameters": {
-                "TopicArn": "arn:aws:sns:${region}:${aws_account_id}:pipeline-notifications",
-                "Message": {
-                    "execution_id.$": "$$.Execution.Name",
-                    "status": "FAILED",
-                    "error.$": "$.error"
-                }
-            },
-            "End": true
-        },
-        "NotifyInsufficientData": {
-            "Type": "Task",
-            "Resource": "arn:aws:states:::sns:publish",
-            "Parameters": {
-                "TopicArn": "arn:aws:sns:${region}:${aws_account_id}:pipeline-notifications",
-                "Message": {
-                    "execution_id.$": "$$.Execution.Name",
-                    "status": "INSUFFICIENT_DATA",
-                    "record_count.$": "$.etl_result.OutputArguments.record_count"
-                }
-            },
-            "End": true
-        },
-        "ScaleDownAndRetry": {
-            "Type": "Task",
-            "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync",
-            "Parameters": {
-                "TrainingJobName.$": "States.Format('{}-retry-{}', $$.Execution.Name, $$.State.EnteredTime)",
-                "RoleArn": "${sagemaker_role_arn}",
-                "AlgorithmSpecification": {
-                    "TrainingImage": "${training_image}",
-                    "TrainingInputMode": "File"
-                },
-                "InputDataConfig": [
-                    {
-                        "ChannelName": "train",
-                        "DataSource": {
-                            "S3DataSource": {
-                                "S3DataType": "S3Prefix",
-                                "S3Uri.$": "$.etl_result.OutputArguments.OUTPUT_BUCKET",
-                                "S3DataDistributionType": "FullyReplicated"
-                            }
-                        }
-                    }
-                ],
-                "OutputDataConfig": {
-                    "S3OutputPath": "s3://${s3_bucket_name}/models/${$$.Execution.Name}/"
-                },
-                "ResourceConfig": {
-                    "InstanceType": "ml.m5.large",
-                    "InstanceCount": 1,
-                    "VolumeSizeInGB": 30
-                },
-                "StoppingCondition": {
-                    "MaxRuntimeInSeconds": 7200
-                }
-            },
-            "Next": "NotifySuccess",
-            "ResultPath": "$.training_result"
         }
     }
 }

@@ -56,3 +56,25 @@ resource "aws_iam_policy" "cloudwatch_logs_policy" {
     }]
   })
 }
+
+
+resource "aws_iam_role_policy" "sfn_eventbridge" {
+  role = aws_iam_role.sfn_exec_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "events:PutRule",
+          "events:PutTargets",
+          "events:DescribeRule",
+          "events:DeleteRule",
+          "events:RemoveTargets"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}

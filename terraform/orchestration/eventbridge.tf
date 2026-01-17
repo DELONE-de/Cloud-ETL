@@ -25,7 +25,7 @@ resource "aws_scheduler_schedule" "weekly_pipeline_schedule" {
     # Configure retry behavior (optional, but highly recommended)
     retry_policy {
       maximum_retry_attempts     = 3
-      maximum_event_age_in_seconds = var.maximum_event_age_in_seconds #3600
+      maximum_event_age_in_seconds = 3600
     }
   }
 }

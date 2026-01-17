@@ -19,3 +19,21 @@ resource "aws_iam_policy" "s3_access_policy" {
   })
 }
 
+# CloudWatch Logs Policy
+resource "aws_iam_policy" "cloudwatch_logs_policy" {
+  name = "${var.project_prefix}-${var.environment}-logs-access"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Resource = "arn:aws:logs:*:*:*"
+    }]
+  })
+}
+

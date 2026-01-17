@@ -28,9 +28,6 @@ variable "catalog_db_name" {
   type = string
 }
 
-variable "Environment" {
-  type = string
-}
 
 variable "project" {
   type = string
@@ -72,3 +69,6 @@ variable "memory_size" {
   type = string
 }
 
+variable "account_id" {
+  type = string
+}

@@ -47,7 +47,7 @@ variable "source_dir_s3_uri" {
 }
 
 variable "tags" {
-  type = string
+  type = map(string)
 }
 
 variable "sagemaker_execution_role" {

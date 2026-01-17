@@ -1,8 +1,3 @@
-variable "step_function_arn" {
-  description = "The ARN of the AWS Step Function State Machine to be triggered."
-  type        = string
-}
-
 variable "schedule_name" {
   description = "The name for the EventBridge Scheduler schedule."
   type        = string

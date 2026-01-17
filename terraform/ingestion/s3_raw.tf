@@ -21,12 +21,7 @@ resource "aws_s3_bucket_versioning" "raw" {
   }
 }
 
-resource "aws_s3_bucket_acl" "raw" {
-  bucket = aws_s3_bucket.raw.id
-  acl    = var.s3_bucket_acl
-}
 
-# Block public access
 resource "aws_s3_bucket_public_access_block" "raw" {
   bucket                  = aws_s3_bucket.raw.id
   block_public_acls       = true

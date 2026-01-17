@@ -21,7 +21,7 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
-
+######### INGESTION VARIABLES #########
 variable "firehose_buffer_size_mb" {
   description = "Firehose buffer size in MB"
   type        = number
@@ -58,6 +58,51 @@ variable "s3_lifecycle_transition_days" {
   default     = 30
 }
 
+############## DATA VALIDATION VARIABLES ##############
 variable "aws_catalog_description" {
+  description = "Description of the AWS Glue Data Catalog"
+  type        = string
+  default     = "Data Catalog for Cloud ETL Project"
+}
 
+variable "lambda_package" {
+  description = "Lambda package name"
+  type        = string
+  default     = "validation-lambda-package.zip"
+}
+
+variable "handler" {
+  description = "lambda handler"
+  type = string
+  default = "lambda_function.lambda_handler"
+}
+
+variable "runtime" {
+  description = "lambda function runtime"
+  type = string
+  default = "python3.10"
+}
+
+variable "timeout" {
+  description = "timeout of the lambda function"
+  type = string
+  default = "30"
+}
+
+variable "memory_size" {
+  description = "the memory size of the lambda function"
+  type = string
+  default = "256"
+}
+
+variable "glue_job_name" {
+  description = "the name of the aws glue jobs"
+  type = list(string)
+  default = ["etl-job-1", "etl-job-2"]
+}
+
+variable "training_image" {
+  description = "the ETL machine training image"
+  type = string
+  default = "382416733822.dkr.ecr.us-east-1.amazonaws.com/sklearn-training:1.2-1-cpu-py3"
 }

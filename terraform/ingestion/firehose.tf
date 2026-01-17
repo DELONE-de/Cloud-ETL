@@ -1,6 +1,6 @@
 resource "aws_kinesis_firehose_delivery_stream" "kinesis_to_s3" {
   name        = "${var.project_prefix}-${var.environment}-firehose"
-  destination = "s3"
+  destination = "extended_s3"
 
   kinesis_source_configuration {
     kinesis_stream_arn = aws_kinesis_stream.ingest_stream.arn
@@ -13,6 +13,7 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_to_s3" {
     prefix             = "raw/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
     buffering_size     = var.firehose_buffer_size_mb
     buffering_interval = var.firehose_buffer_interval_seconds
+    error_output_prefix = "errors/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/"
 
     cloudwatch_logging_options {
       enabled         = true

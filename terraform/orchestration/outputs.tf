@@ -14,7 +14,3 @@ output "glue_jobs_arn" {
 output "etl_script_bucket_arn" {
   value = aws_s3_object.etl_script.arn
 }
-
-output "training_script_bucket_arn" {
-  value = aws_s3_object.training_script.arn
-}

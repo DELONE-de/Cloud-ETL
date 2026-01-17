@@ -16,14 +16,14 @@ module "deployment" {
   destination_prefix = "models/"
   model_name = "crop-recommendation-model"
   source_prefix = "raw/"
-  target_bucket_name = "cloud-etl-model-bucket"
-  model_data_s3_uri = "s3://cloud-etl-model-bucket/models/model.tar.gz"
-  source_dir_s3_uri = "s3://cloud-etl-model-bucket/code/code.tar.gz"
+  target_bucket_name = "cloud-etl-model-artifacts"
+  model_data_s3_uri = "s3://cloud-etl-model-artifacts/models/model.tar.gz"
+  source_dir_s3_uri = "s3://cloud-etl-model-artifacts/code/code.tar.gz"
   s3_key_prefix = "inference/"
-  sklearn_image_uri = "382416733822.dkr.ecr.us-east-1.amazonaws.com/sklearn-inference:0.23-1-cpu-py3"
-  s3_bucket_name = "cloud-etl-model-bucket"
-  sagemaker_execution_role = module.iam.sagemaker_execution_role.arn
-  api_gateway_lambda_role = module.iam.api_gateway_lambda_role.arn
+  sklearn_image_uri = "683313688378.dkr.ecr.us-east-1.amazonaws.com/sagemaker-scikit-learn:0.23-1-cpu-py3"
+  s3_bucket_name = "cloud-etl-model-artifacts"
+  sagemaker_execution_role = module.iam.sagemaker_execution_role_arn
+  api_gateway_lambda_role = module.iam.api_gateway_lambda_role_arn
 }
 
 

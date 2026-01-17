@@ -17,11 +17,11 @@ resource "aws_sfn_state_machine" "ml_pipeline" {
     instance_type         = "ml.m5.xlarge"
     region                = var.region
     aws_account_id        = data.aws_caller_identity.current.account_id
-    s3_code_bucket_name   = aws_s3_object.training_code.bucket.name
+    s3_code_bucket_name   = aws_s3_object.training_code.bucket
   })
 
   logging_configuration {
-    log_destination        = var.sfn_logs_arn
+    log_destination        = "arn:aws:logs:us-east-1:364876732363:log-group:${var.sfn_logs_arn}:*"
     include_execution_data = true
     level                  = "ALL"
   }

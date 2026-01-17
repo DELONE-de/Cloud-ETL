@@ -7,7 +7,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   period              = 60
   statistic           = "Sum"
   threshold           = var.lambda_error_threshold
-  alarm_actions       = [var.alarm_sns_topic_arn]
+  alarm_actions       = [aws_sns_topic.alerts.arn]
 
   dimensions = {
     FunctionName = var.validation_lambda_name
@@ -45,7 +45,7 @@ resource "aws_cloudwatch_metric_alarm" "endpoint_errors" {
   alarm_description   = "This metric monitors SageMaker endpoint 5XX errors"
 
   dimensions = {
-    EndpointName = aws_sagemaker_endpoint.main.name
+    EndpointName = var.sagemaker_endpoint_name
     VariantName  = "AllTraffic"
   }
 
