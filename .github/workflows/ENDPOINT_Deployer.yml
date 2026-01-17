@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Model Endpoint CI/CD Pipeline
 
 on:
   push:
